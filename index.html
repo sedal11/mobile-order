@@ -716,6 +716,29 @@ function CompleteStep({ orderNumber, pickup, days, onHome }) {
           </div>
         </div>
 
+        <div className="animate-in bg-[#1a2a1a] border border-green-800/50 rounded-2xl p-5 text-left mt-4" style={{ animationDelay: '0.25s' }}>
+          <h3 className="text-sm font-bold text-green-400 mb-3">💳 결제 안내</h3>
+          <p className="text-cream text-sm mb-3">세탁비는 아래 계좌로 이체하시거나,<br/>수령 시 현금/카드 결제 가능합니다.</p>
+          <div className="bg-navy-dark/50 rounded-xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400">은행</span>
+              <span className="text-cream font-bold text-sm">대구은행</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400">계좌번호</span>
+              <span className="text-gold font-bold text-sm tracking-wider">508-10-267538-3</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400">예금주</span>
+              <span className="text-cream font-bold text-sm">세탁의달인</span>
+            </div>
+          </div>
+          <button onClick={() => {navigator.clipboard?.writeText('508-10-267538-3'); alert('계좌번호가 복사되었습니다!');}} className="w-full mt-3 py-2 rounded-lg bg-green-800/30 text-green-400 text-sm font-bold active:bg-green-800/50">
+            📋 계좌번호 복사하기
+          </button>
+          <p className="text-xs text-gray-500 mt-2">※ 최종 금액은 제품 상태 확인 후 변동될 수 있습니다.</p>
+        </div>
+
         <div className="animate-in mt-6" style={{ animationDelay: '0.3s' }}>
           <p className="text-gray-400 text-sm mb-8">세탁의달인을 이용해 주셔서 감사합니다!</p>
         </div>
@@ -799,7 +822,10 @@ ${items}
 📦 수거: ${payload.pickup.method}
 📅 수거일: ${payload.pickup.date} ${payload.pickup.time}
 🚚 배달: ${payload.pickup.deliveryMethod}
-${payload.pickup.memo ? `📝 요청: ${payload.pickup.memo}` : ''}`;
+${payload.pickup.memo ? `📝 요청: ${payload.pickup.memo}` : ''}
+
+💳 결제: 계좌이체 또는 수령 시 결제
+🏦 대구은행 508-10-267538-3 (세탁의달인)`;
 
     try {
       await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
