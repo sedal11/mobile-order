@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0A1222">
+<title>세탁의달인 - 모바일 주문</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap');
+  * { font-family: 'Noto Sans KR', sans-serif; -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+  body { margin: 0; padding: 0; background: #0A1222; color: #E8E0D0; overscroll-behavior: none; }
+  input, textarea { font-family: 'Noto Sans KR', sans-serif; }
+  ::-webkit-scrollbar { width: 0; }
+  .gold-gradient { background: linear-gradient(135deg, #C5A55A 0%, #E8D5A0 50%, #C5A55A 100%); }
+  .gold-text { background: linear-gradient(135deg, #C5A55A 0%, #E8D5A0 50%, #C5A55A 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .shine { position: relative; overflow: hidden; }
+  .shine::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(to right, transparent 0%, rgba(197,165,90,0.08) 50%, transparent 100%); transform: rotate(30deg); animation: shine 4s ease-in-out infinite; }
+  @keyframes shine { 0%,100% { transform: translateX(-100%) rotate(30deg); } 50% { transform: translateX(100%) rotate(30deg); } }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pulse-gold { 0%,100% { box-shadow: 0 0 0 0 rgba(197,165,90,0.4); } 50% { box-shadow: 0 0 20px 4px rgba(197,165,90,0.2); } }
+  .animate-in { animation: fadeInUp 0.5s ease-out forwards; }
+  .animate-fade { animation: fadeIn 0.3s ease-out forwards; }
+  .btn-pulse { animation: pulse-gold 2.5s ease-in-out infinite; }
+  .step-transition { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+  input:focus, textarea:focus { outline: none; border-color: #C5A55A !important; box-shadow: 0 0 0 2px rgba(197,165,90,0.25); }
+  .checkbox-custom { appearance: none; -webkit-appearance: none; width: 22px; height: 22px; border: 2px solid #3A4A6B; border-radius: 5px; background: #0F1D36; cursor: pointer; position: relative; flex-shrink: 0; }
+  .checkbox-custom:checked { background: #C5A55A; border-color: #C5A55A; }
+  .checkbox-custom:checked::after { content: '✓'; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #0A1222; font-size: 14px; font-weight: 700; }
+  .radio-custom { appearance: none; -webkit-appearance: none; width: 22px; height: 22px; border: 2px solid #3A4A6B; border-radius: 50%; background: #0F1D36; cursor: pointer; position: relative; flex-shrink: 0; }
+  .radio-custom:checked { border-color: #C5A55A; }
+  .radio-custom:checked::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 10px; height: 10px; border-radius: 50%; background: #C5A55A; }
+  .item-card { transition: all 0.2s ease; }
+  .item-card:active { transform: scale(0.97); }
+  .counter-btn { transition: all 0.15s ease; }
+  .counter-btn:active { transform: scale(0.9); }
+</style>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        navy: { DEFAULT: '#0A1222', light: '#0F1D36', mid: '#162A4A', border: '#1E3355' },
+        gold: { DEFAULT: '#C5A55A', light: '#E8D5A0', dark: '#A88B3D' },
+        cream: '#E8E0D0',
+      }
+    }
+  }
+}
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ─── Pricing Data ───
+const CATEGORIES = [
+  { id: 'outer', name: '아우터', icon: '🧥' },
+  { id: 'shoes', name: '신발', icon: '👟' },
+  { id: 'bag', name: '가방', icon: '👜' },
+  { id: 'top', name: '상의', icon: '👕' },
+  { id: 'bottom', name: '하의', icon: '👖' },
+  { id: 'suit', name: '정장/원피스', icon: '👗' },
+  { id: 'special', name: '특수', icon: '✨' },
+];
+
+const ITEMS = {
+  top: [
+    { name: '반팔', price: 8000 },
+    { name: '긴팔', price: 8000 },
+    { name: '맨투맨', price: 10000 },
+    { name: '후드', price: 12000 },
+    { name: '셔츠', price: 8000 },
+    { name: '블라우스', price: 10000 },
+    { name: '니트', price: 9000 },
+    { name: '가디건', price: 10000 },
+    { name: '조끼', price: 8000 },
+    { name: '넥타이', price: 5000 },
+    { name: '스카프/머플러', price: 10000 },
+    { name: '모자', price: 12000 },
+  ],
+  bottom: [
+    { name: '바지', price: 8000 },
+    { name: '청바지', price: 10000 },
+    { name: '치마', price: 8000 },
+  ],
+  outer: [
+    { name: '자켓 (숏)', price: 10000 },
+    { name: '자켓 (하프)', price: 13000 },
+    { name: '코트 (숏)', price: 20000 },
+    { name: '코트 (하프)', price: 25000 },
+    { name: '코트 (롱)', price: 30000 },
+    { name: '패딩 (숏)', price: 30000 },
+    { name: '패딩 (하프)', price: 35000 },
+    { name: '패딩 (롱)', price: 40000 },
+    { name: '점퍼', price: 20000 },
+  ],
+  suit: [
+    { name: '원피스 (숏)', price: 18000 },
+    { name: '원피스 (롱)', price: 20000 },
+    { name: '정장 (상하)', price: 17000 },
+  ],
+  shoes: [
+    { name: '운동화', price: 20000 },
+    { name: '부츠', price: 25000 },
+  ],
+  special: [
+    { name: '가죽', price: 120000 },
+    { name: '스웨이드', price: 150000 },
+    { name: '모피', price: 150000 },
+    { name: '무스탕', price: 150000 },
+    { name: '스키복', price: 70000 },
+  ],
+  bag: [
+    { name: '가방', price: 0, isQuote: true },
+  ],
+};
+
+const PREMIUM_MULTIPLIER = 3;
+const TELEGRAM_BOT_TOKEN = '8702366339:AAFSWXrMPYMFt5UH7zHFnLDnOfXUe10PrGY';
+const TELEGRAM_CHAT_ID = '7952457943';
+const API_URL = 'https://pos.setakdalin.com/api/orders';
+
+// ─── Helpers ───
+const formatPrice = (n) => n === 0 ? '별도 견적' : `₩${n.toLocaleString()}`;
+const formatPhone = (v) => {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 7) return `${d.slice(0,3)}-${d.slice(3)}`;
+  return `${d.slice(0,3)}-${d.slice(3,7)}-${d.slice(7)}`;
+};
+
+const getDayLabel = (date) => {
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return days[date.getDay()];
+};
+
+const getNextDays = (count) => {
+  const result = [];
+  const now = new Date();
+  for (let i = 1; i <= count; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    const label = i === 1 ? '내일' : i === 2 ? '모레' : `${d.getMonth()+1}/${d.getDate()}`;
+    result.push({ date: d, label, dayLabel: getDayLabel(d), fullLabel: `${d.getMonth()+1}월 ${d.getDate()}일 (${getDayLabel(d)})` });
+  }
+  return result;
+};
+
+const generateOrderNumber = () => {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(2);
+  const mm = String(now.getMonth()+1).padStart(2,'0');
+  const dd = String(now.getDate()).padStart(2,'0');
+  const seq = String(Math.floor(Math.random()*999)+1).padStart(3,'0');
+  return `ORD-${yy}${mm}${dd}-${seq}`;
+};
+
+// ─── Components ───
+
+function StepIndicator({ current, total }) {
+  return (
+    <div className="flex items-center justify-center gap-2 py-3">
+      {Array.from({ length: total }, (_, i) => (
+        <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${
+          i < current ? 'w-6 bg-gold' : i === current ? 'w-8 bg-gold' : 'w-6 bg-navy-mid'
+        }`} />
+      ))}
+    </div>
+  );
+}
+
+function GoldButton({ children, onClick, disabled, className = '', pulse = false }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-full py-4 rounded-xl font-bold text-lg text-navy tracking-wide
+        ${disabled ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'gold-gradient active:scale-[0.98] active:brightness-90'}
+        ${pulse && !disabled ? 'btn-pulse' : ''}
+        transition-all duration-200 ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function InputField({ icon, label, value, onChange, placeholder, type = 'text', required }) {
+  return (
+    <div className="animate-fade">
+      <label className="block text-sm text-gray-400 mb-1.5 ml-1">
+        {icon} {label} {required && <span className="text-gold text-xs">*</span>}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="w-full bg-navy-light border border-navy-border rounded-xl px-4 py-3.5 text-cream text-base placeholder-gray-600"
+      />
+    </div>
+  );
+}
+
+// ─── Step 1: Welcome ───
+function WelcomeStep({ onNext }) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 relative">
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-gold/5 rounded-full blur-[120px]"></div>
+      </div>
+      <div className="relative z-10 text-center w-full max-w-sm">
+        <div className="animate-in" style={{ animationDelay: '0.1s' }}>
+          <h1 className="text-4xl font-black gold-text tracking-tight">세탁의달인</h1>
+          <p className="text-gold/60 text-xs tracking-[0.3em] mt-1 font-medium">PREMIUM LAUNDRY CARE</p>
+        </div>
+
+        <div className="animate-in mt-12" style={{ animationDelay: '0.3s' }}>
+          <div className="text-5xl mb-4">🧥</div>
+          <h2 className="text-xl font-bold text-cream leading-relaxed">
+            집에서 편하게<br/>세탁물을 맡겨보세요!
+          </h2>
+          <p className="text-gray-400 mt-3 text-sm">수거부터 배달까지 한번에!</p>
+        </div>
+
+        <div className="animate-in mt-14" style={{ animationDelay: '0.5s' }}>
+          <GoldButton onClick={onNext} pulse>
+            접수 시작하기 →
+          </GoldButton>
+        </div>
+
+        <div className="animate-in mt-8" style={{ animationDelay: '0.7s' }}>
+          <div className="flex justify-center gap-6 text-gray-500 text-xs">
+            <span>🔒 안전한 서비스</span>
+            <span>🚚 무료 수거/배달</span>
+            <span>✨ 프리미엄 케어</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 2: Customer Info ───
+function CustomerInfoStep({ data, onChange, onNext, onBack }) {
+  const { name, phone, address, addressDetail, agreePrivacy, agreeMarketing } = data;
+  const isValid = name.trim() && phone.replace(/\D/g,'').length >= 10 && address.trim() && agreePrivacy;
+
+  const handlePhoneChange = (e) => {
+    onChange({ phone: formatPhone(e.target.value) });
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col px-5 pt-4 pb-8">
+      <button onClick={onBack} className="text-gray-500 text-sm self-start mb-2 py-2">← 뒤로</button>
+      <StepIndicator current={0} total={5} />
+
+      <h2 className="text-2xl font-bold gold-text mt-4 mb-6">고객 정보</h2>
+
+      <div className="flex-1 space-y-5">
+        <InputField icon="👤" label="이름" value={name} onChange={e => onChange({ name: e.target.value })} placeholder="홍길동" required />
+        <InputField icon="📱" label="휴대폰 번호" value={phone} onChange={handlePhoneChange} placeholder="010-0000-0000" type="tel" required />
+        <InputField icon="📍" label="수거/배달 주소" value={address} onChange={e => onChange({ address: e.target.value })} placeholder="대구시 수성구 ..." required />
+        <InputField icon="🏠" label="상세주소 (동/호수)" value={addressDetail} onChange={e => onChange({ addressDetail: e.target.value })} placeholder="101동 1001호" />
+
+        <div className="space-y-3 pt-2">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" className="checkbox-custom" checked={agreePrivacy} onChange={e => onChange({ agreePrivacy: e.target.checked })} />
+            <span className="text-sm text-gray-300"><span className="text-gold font-medium">[필수]</span> 개인정보 수집·이용 동의</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" className="checkbox-custom" checked={agreeMarketing} onChange={e => onChange({ agreeMarketing: e.target.checked })} />
+            <span className="text-sm text-gray-300"><span className="text-gray-500">[선택]</span> 마케팅 수신 동의</span>
+          </label>
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <GoldButton onClick={onNext} disabled={!isValid}>
+          다음 →
+        </GoldButton>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 3: Item Selection ───
+function ItemSelectionStep({ cart, setCart, onNext, onBack }) {
+  const [activeCategory, setActiveCategory] = useState(null);
+  const [isPremium, setIsPremium] = useState(false);
+
+  const getCartKey = (catId, itemName, premium) => `${catId}|${itemName}|${premium ? 'P' : 'N'}`;
+
+  const getQty = (catId, itemName) => {
+    const key = getCartKey(catId, itemName, isPremium);
+    return cart[key]?.qty || 0;
+  };
+
+  const updateQty = (catId, item, delta) => {
+    if (item.isQuote) return;
+    const key = getCartKey(catId, item.name, isPremium);
+    setCart(prev => {
+      const current = prev[key]?.qty || 0;
+      const newQty = Math.max(0, current + delta);
+      if (newQty === 0) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      const price = isPremium ? item.price * PREMIUM_MULTIPLIER : item.price;
+      return { ...prev, [key]: { catId, name: item.name, price, qty: newQty, isPremium } };
+    });
+  };
+
+  const totalItems = Object.values(cart).reduce((s, i) => s + i.qty, 0);
+  const totalPrice = Object.values(cart).reduce((s, i) => s + i.price * i.qty, 0);
+
+  const catIcon = (cat) => CATEGORIES.find(c => c.id === cat)?.icon || '';
+
+  return (
+    <div className="min-h-screen flex flex-col px-5 pt-4 pb-8">
+      <button onClick={onBack} className="text-gray-500 text-sm self-start mb-2 py-2">← 뒤로</button>
+      <StepIndicator current={1} total={5} />
+
+      <h2 className="text-2xl font-bold gold-text mt-4 mb-4">세탁물 선택</h2>
+
+      {/* Premium Toggle */}
+      <div className="flex items-center justify-center gap-3 mb-5">
+        <button
+          onClick={() => setIsPremium(false)}
+          className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all ${
+            !isPremium ? 'bg-navy-mid border-2 border-gold text-gold' : 'bg-navy-light border-2 border-navy-border text-gray-500'
+          }`}
+        >일반</button>
+        <button
+          onClick={() => setIsPremium(true)}
+          className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all ${
+            isPremium ? 'bg-gold/20 border-2 border-gold text-gold' : 'bg-navy-light border-2 border-navy-border text-gray-500'
+          }`}
+        >✨ 명품 (x3)</button>
+      </div>
+
+      {/* Category Grid */}
+      <div className="grid grid-cols-4 gap-2 mb-5">
+        {CATEGORIES.map(cat => {
+          const isActive = activeCategory === cat.id;
+          const catItems = Object.entries(cart).filter(([k]) => k.startsWith(cat.id + '|'));
+          const catCount = catItems.reduce((s, [, v]) => s + v.qty, 0);
+          return (
+            <button
+              key={cat.id}
+              onClick={() => setActiveCategory(isActive ? null : cat.id)}
+              className={`relative flex flex-col items-center py-3 rounded-xl text-xs font-bold transition-all ${
+                isActive ? 'bg-navy-mid border-2 border-gold text-gold scale-[1.02]' : 'bg-navy-light border-2 border-navy-border text-gray-400 active:scale-95'
+              }`}
+            >
+              <span className="text-xl mb-1">{cat.icon}</span>
+              <span className="leading-tight">{cat.name}</span>
+              {catCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gold text-navy text-[10px] font-black flex items-center justify-center">{catCount}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Items List */}
+      <div className="flex-1 overflow-y-auto">
+        {activeCategory && ITEMS[activeCategory] && (
+          <div className="space-y-2 animate-fade">
+            {ITEMS[activeCategory].map(item => {
+              const qty = getQty(activeCategory, item.name);
+              const displayPrice = item.isQuote ? 0 : (isPremium ? item.price * PREMIUM_MULTIPLIER : item.price);
+              return (
+                <div key={item.name} className="item-card flex items-center justify-between bg-navy-light border border-navy-border rounded-xl px-4 py-3.5">
+                  <div>
+                    <p className="text-cream font-medium text-[15px]">{item.name}</p>
+                    <p className={`text-sm mt-0.5 ${isPremium && !item.isQuote ? 'text-gold font-semibold' : 'text-gray-400'}`}>
+                      {item.isQuote ? '별도 견적' : formatPrice(displayPrice)}
+                      {isPremium && !item.isQuote && <span className="text-gray-500 text-xs ml-1.5 line-through">{formatPrice(item.price)}</span>}
+                    </p>
+                  </div>
+                  {!item.isQuote ? (
+                    <div className="flex items-center gap-3">
+                      {qty > 0 && (
+                        <>
+                          <button onClick={() => updateQty(activeCategory, item, -1)} className="counter-btn w-9 h-9 rounded-full bg-navy-mid border border-navy-border flex items-center justify-center text-gold text-xl font-bold">−</button>
+                          <span className="text-cream font-bold text-lg w-6 text-center">{qty}</span>
+                        </>
+                      )}
+                      <button onClick={() => updateQty(activeCategory, item, 1)} className="counter-btn w-9 h-9 rounded-full bg-gold/20 border border-gold flex items-center justify-center text-gold text-xl font-bold">+</button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-500 bg-navy-mid px-3 py-1.5 rounded-lg">상담 필요</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {!activeCategory && (
+          <div className="text-center text-gray-500 mt-12">
+            <p className="text-3xl mb-3">👆</p>
+            <p className="text-sm">카테고리를 선택해주세요</p>
+          </div>
+        )}
+      </div>
+
+      {/* Cart Summary Bar */}
+      {totalItems > 0 && (
+        <div className="mt-4 bg-navy-mid border border-gold/30 rounded-xl px-4 py-3 flex items-center justify-between animate-fade">
+          <div>
+            <span className="text-gold font-bold text-sm">{totalItems}개 선택</span>
+            <span className="text-cream font-bold text-lg ml-3">{formatPrice(totalPrice)}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <GoldButton onClick={onNext} disabled={totalItems === 0}>
+          다음 → {totalItems > 0 && `(${totalItems}개)`}
+        </GoldButton>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 4: Pickup/Delivery Options ───
+function PickupDeliveryStep({ data, onChange, onNext, onBack }) {
+  const days = useMemo(() => getNextDays(7), []);
+  const { pickupMethod, pickupDate, pickupTime, deliveryMethod, memo } = data;
+
+  const isValid = pickupMethod && pickupDate !== null && pickupTime && deliveryMethod;
+
+  return (
+    <div className="min-h-screen flex flex-col px-5 pt-4 pb-8">
+      <button onClick={onBack} className="text-gray-500 text-sm self-start mb-2 py-2">← 뒤로</button>
+      <StepIndicator current={2} total={5} />
+
+      <h2 className="text-2xl font-bold gold-text mt-4 mb-6">수거·배달 선택</h2>
+
+      <div className="flex-1 space-y-7 overflow-y-auto">
+        {/* Pickup Method */}
+        <div>
+          <h3 className="text-sm font-bold text-gray-400 mb-3">📦 수거 방식</h3>
+          <div className="space-y-2.5">
+            {[
+              { value: 'door', label: '문 앞 수거', desc: '세탁물을 문 앞에 놓아주세요' },
+              { value: 'direct', label: '직접 전달', desc: '기사님께 직접 전달' },
+            ].map(opt => (
+              <label key={opt.value} className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                pickupMethod === opt.value ? 'bg-navy-mid border-gold' : 'bg-navy-light border-navy-border'
+              }`}>
+                <input type="radio" name="pickupMethod" className="radio-custom mt-0.5" checked={pickupMethod === opt.value} onChange={() => onChange({ pickupMethod: opt.value })} />
+                <div>
+                  <p className="font-medium text-cream">{opt.label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Pickup Date */}
+        <div>
+          <h3 className="text-sm font-bold text-gray-400 mb-3">📅 수거 희망일</h3>
+          <div className="grid grid-cols-4 gap-2">
+            {days.map((d, i) => (
+              <button
+                key={i}
+                onClick={() => onChange({ pickupDate: i })}
+                className={`flex flex-col items-center py-3 rounded-xl text-xs font-bold transition-all ${
+                  pickupDate === i ? 'bg-gold/20 border-2 border-gold text-gold' : 'bg-navy-light border-2 border-navy-border text-gray-400 active:scale-95'
+                }`}
+              >
+                <span className="text-[15px] font-bold">{d.label}</span>
+                <span className={`text-[10px] mt-0.5 ${d.dayLabel === '일' ? 'text-red-400' : d.dayLabel === '토' ? 'text-blue-400' : ''}`}>({d.dayLabel})</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Pickup Time */}
+        <div>
+          <h3 className="text-sm font-bold text-gray-400 mb-3">⏰ 수거 희망 시간</h3>
+          <div className="space-y-2.5">
+            {[
+              { value: 'morning', label: '오전', time: '09:00 ~ 12:00' },
+              { value: 'afternoon', label: '오후', time: '12:00 ~ 18:00' },
+              { value: 'evening', label: '저녁', time: '18:00 ~ 21:00' },
+            ].map(opt => (
+              <label key={opt.value} className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                pickupTime === opt.value ? 'bg-navy-mid border-gold' : 'bg-navy-light border-navy-border'
+              }`}>
+                <input type="radio" name="pickupTime" className="radio-custom" checked={pickupTime === opt.value} onChange={() => onChange({ pickupTime: opt.value })} />
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-cream">{opt.label}</span>
+                  <span className="text-xs text-gray-500">{opt.time}</span>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Delivery Method */}
+        <div>
+          <h3 className="text-sm font-bold text-gray-400 mb-3">🚚 배달 방식</h3>
+          <div className="space-y-2.5">
+            {[
+              { value: 'door', label: '문 앞 배달' },
+              { value: 'direct', label: '직접 수령' },
+            ].map(opt => (
+              <label key={opt.value} className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                deliveryMethod === opt.value ? 'bg-navy-mid border-gold' : 'bg-navy-light border-navy-border'
+              }`}>
+                <input type="radio" name="deliveryMethod" className="radio-custom" checked={deliveryMethod === opt.value} onChange={() => onChange({ deliveryMethod: opt.value })} />
+                <span className="font-medium text-cream">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Memo */}
+        <div>
+          <h3 className="text-sm font-bold text-gray-400 mb-3">📝 요청사항</h3>
+          <textarea
+            value={memo}
+            onChange={e => onChange({ memo: e.target.value })}
+            placeholder="특별히 주의할 점을 적어주세요"
+            rows={3}
+            className="w-full bg-navy-light border border-navy-border rounded-xl px-4 py-3.5 text-cream text-sm placeholder-gray-600 resize-none"
+          />
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <GoldButton onClick={onNext} disabled={!isValid}>
+          다음 →
+        </GoldButton>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 5: Order Summary ───
+function OrderSummaryStep({ customer, cart, pickup, days, onConfirm, onBack, isSubmitting }) {
+  const items = Object.values(cart);
+  const itemTotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const catIcon = (catId) => CATEGORIES.find(c => c.id === catId)?.icon || '📦';
+
+  // 수거/배달비 계산
+  function calcDeliveryFee(laundryTotal, address) {
+    let km = 3;
+    const addr = (address || '');
+    if (addr.includes('수성구') || addr.includes('수성로')) km = 1;
+    else if (addr.includes('중구') || addr.includes('남구') || addr.includes('동구')) km = 3;
+    else if (addr.includes('북구') || addr.includes('달서구') || addr.includes('서구')) km = 5;
+    else if (addr.includes('달성') || addr.includes('경산') || addr.includes('칠곡')) km = 10;
+    else km = 7;
+    if (laundryTotal >= 100000 && km <= 1) return { fee: 0, km };
+    let fee;
+    if (laundryTotal >= 100000) {
+      fee = km <= 3 ? 10000 : km <= 5 ? 15000 : km <= 7 ? 20000 : 30000;
+    } else {
+      fee = km <= 1 ? 10000 : km <= 3 ? 15000 : km <= 5 ? 20000 : km <= 7 ? 25000 : 30000;
+    }
+    return { fee, km };
+  }
+  const dlv = calcDeliveryFee(itemTotal, customer.address);
+  const total = itemTotal + dlv.fee;
+  const timeLabel = { morning: '오전', afternoon: '오후', evening: '저녁' };
+  const pickupDay = days[pickup.pickupDate];
+
+  return (
+    <div className="min-h-screen flex flex-col px-5 pt-4 pb-8">
+      <button onClick={onBack} className="text-gray-500 text-sm self-start mb-2 py-2">← 뒤로</button>
+      <StepIndicator current={3} total={5} />
+
+      <h2 className="text-2xl font-bold gold-text mt-4 mb-6">접수 내역 확인</h2>
+
+      <div className="flex-1 space-y-5">
+        {/* Order Items */}
+        <div className="bg-navy-light border border-navy-border rounded-2xl p-5">
+          <h3 className="text-sm font-bold text-gray-400 mb-4">📋 주문 내역</h3>
+          <div className="space-y-3">
+            {items.map((item, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span>{catIcon(item.catId)}</span>
+                  <span className="text-cream text-sm">
+                    {item.name} {item.isPremium && <span className="text-gold text-xs font-bold">명품</span>}
+                  </span>
+                  <span className="text-gray-500 text-xs">x{item.qty}</span>
+                </div>
+                <span className="text-cream font-bold text-sm">{formatPrice(item.price * item.qty)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-navy-border mt-4 pt-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400 text-sm">세탁비</span>
+              <span className="text-cream font-bold text-sm">{formatPrice(itemTotal)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400 text-sm">🚚 수거/배달비 <span className="text-xs text-gray-500">(약 {dlv.km}km)</span></span>
+              <span className={`font-bold text-sm ${dlv.fee === 0 ? 'text-green-400' : 'text-cream'}`}>{dlv.fee === 0 ? '무료' : formatPrice(dlv.fee)}</span>
+            </div>
+            {dlv.fee === 0 && <p className="text-xs text-green-400/70">✨ 10만원 이상 + 1km 이내 무료!</p>}
+            <div className="border-t border-navy-border pt-2 flex items-center justify-between">
+              <span className="text-gray-400 font-bold">총 결제 예상액</span>
+              <span className="text-gold text-xl font-black">{formatPrice(total)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-navy-mid/50 rounded-xl px-4 py-3">
+          <p className="text-xs text-gray-500 leading-relaxed">
+            ※ 표시 가격은 기본 가격이며, 제품 상태에 따라 변동될 수 있습니다.
+          </p>
+        </div>
+
+        {/* Customer & Delivery Info */}
+        <div className="bg-navy-light border border-navy-border rounded-2xl p-5 space-y-3">
+          <div className="flex items-start gap-2">
+            <span className="text-sm">👤</span>
+            <div>
+              <p className="text-xs text-gray-500">고객</p>
+              <p className="text-cream text-sm">{customer.name} · {customer.phone}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-sm">📍</span>
+            <div>
+              <p className="text-xs text-gray-500">수거지</p>
+              <p className="text-cream text-sm">{customer.address} {customer.addressDetail}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-sm">📅</span>
+            <div>
+              <p className="text-xs text-gray-500">수거 예정</p>
+              <p className="text-cream text-sm">{pickupDay?.fullLabel} {timeLabel[pickup.pickupTime]}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-sm">📦</span>
+            <div>
+              <p className="text-xs text-gray-500">수거 방식</p>
+              <p className="text-cream text-sm">{pickup.pickupMethod === 'door' ? '문 앞 수거' : '직접 전달'}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-sm">🚚</span>
+            <div>
+              <p className="text-xs text-gray-500">배달 방식</p>
+              <p className="text-cream text-sm">{pickup.deliveryMethod === 'door' ? '문 앞 배달' : '직접 수령'}</p>
+            </div>
+          </div>
+          {pickup.memo && (
+            <div className="flex items-start gap-2">
+              <span className="text-sm">📝</span>
+              <div>
+                <p className="text-xs text-gray-500">요청사항</p>
+                <p className="text-cream text-sm">{pickup.memo}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <GoldButton onClick={onConfirm} disabled={isSubmitting}>
+          {isSubmitting ? '접수 중...' : '접수 완료 →'}
+        </GoldButton>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 6: Complete ───
+function CompleteStep({ orderNumber, pickup, days, onHome }) {
+  const timeLabel = { morning: '오전', afternoon: '오후', evening: '저녁' };
+  const pickupDay = days[pickup.pickupDate];
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-6">
+      <div className="text-center w-full max-w-sm">
+        <div className="animate-in">
+          <div className="w-20 h-20 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">✅</span>
+          </div>
+          <h2 className="text-2xl font-black text-cream mb-2">접수 완료!</h2>
+          <p className="text-gold font-bold text-lg mb-8">{orderNumber}</p>
+        </div>
+
+        <div className="animate-in bg-navy-light border border-navy-border rounded-2xl p-5 text-left space-y-4" style={{ animationDelay: '0.2s' }}>
+          <div className="flex items-center gap-3">
+            <span>📅</span>
+            <span className="text-cream text-sm">수거 예정: {pickupDay?.fullLabel} {timeLabel[pickup.pickupTime]}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span>📱</span>
+            <span className="text-cream text-sm">수거 전 연락드리겠습니다</span>
+          </div>
+          <div className="border-t border-navy-border pt-4">
+            <p className="text-xs text-gray-500 leading-relaxed">
+              세탁 완료 시 카카오 알림톡으로 안내드립니다.
+            </p>
+          </div>
+        </div>
+
+        <div className="animate-in mt-6" style={{ animationDelay: '0.3s' }}>
+          <p className="text-gray-400 text-sm mb-8">세탁의달인을 이용해 주셔서 감사합니다!</p>
+        </div>
+
+        <div className="animate-in space-y-3" style={{ animationDelay: '0.4s' }}>
+          <GoldButton onClick={onHome}>
+            홈으로
+          </GoldButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main App ───
+function App() {
+  const [step, setStep] = useState(0);
+  const [customer, setCustomer] = useState(() => {
+    const saved = localStorage.getItem('setakdalin_customer');
+    if (saved) {
+      try { return { ...JSON.parse(saved), agreePrivacy: false, agreeMarketing: false }; } catch {}
+    }
+    return { name: '', phone: '', address: '', addressDetail: '', agreePrivacy: false, agreeMarketing: false };
+  });
+  const [cart, setCart] = useState({});
+  const [pickup, setPickup] = useState({
+    pickupMethod: '', pickupDate: null, pickupTime: '', deliveryMethod: '', memo: ''
+  });
+  const [orderNumber, setOrderNumber] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const days = useMemo(() => getNextDays(7), []);
+
+  const updateCustomer = (updates) => setCustomer(prev => ({ ...prev, ...updates }));
+  const updatePickup = (updates) => setPickup(prev => ({ ...prev, ...updates }));
+
+  const saveCustomerInfo = () => {
+    const { agreePrivacy, agreeMarketing, ...info } = customer;
+    localStorage.setItem('setakdalin_customer', JSON.stringify(info));
+  };
+
+  const buildOrderPayload = (ordNum) => {
+    const items = Object.values(cart);
+    const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const pickupDay = days[pickup.pickupDate];
+    const timeLabel = { morning: '오전 (09~12)', afternoon: '오후 (12~18)', evening: '저녁 (18~21)' };
+    return {
+      orderNumber: ordNum,
+      customer: { name: customer.name, phone: customer.phone, address: customer.address, addressDetail: customer.addressDetail },
+      items: items.map(i => ({ name: i.name, catId: i.catId, isPremium: i.isPremium, price: i.price, qty: i.qty })),
+      total,
+      pickup: {
+        method: pickup.pickupMethod === 'door' ? '문 앞 수거' : '직접 전달',
+        date: pickupDay?.fullLabel,
+        time: timeLabel[pickup.pickupTime],
+        deliveryMethod: pickup.deliveryMethod === 'door' ? '문 앞 배달' : '직접 수령',
+        memo: pickup.memo,
+      },
+      createdAt: new Date().toISOString(),
+    };
+  };
+
+  const sendTelegram = async (payload) => {
+    const items = payload.items.map(i =>
+      `  ${i.isPremium ? '✨' : ''}${i.name} x${i.qty} = ₩${(i.price * i.qty).toLocaleString()}`
+    ).join('\n');
+
+    const text = `🧺 *새 주문 접수!*
+
+📋 주문번호: \`${payload.orderNumber}\`
+
+👤 고객: ${payload.customer.name}
+📱 연락처: ${payload.customer.phone}
+📍 주소: ${payload.customer.address} ${payload.customer.addressDetail}
+
+🧥 주문 내역:
+${items}
+━━━━━━━━━━━━━━
+💰 합계: *₩${payload.total.toLocaleString()}*
+
+📦 수거: ${payload.pickup.method}
+📅 수거일: ${payload.pickup.date} ${payload.pickup.time}
+🚚 배달: ${payload.pickup.deliveryMethod}
+${payload.pickup.memo ? `📝 요청: ${payload.pickup.memo}` : ''}`;
+
+    try {
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'Markdown' }),
+      });
+    } catch (e) {
+      console.error('Telegram notification failed:', e);
+    }
+  };
+
+  const submitOrder = async () => {
+    setIsSubmitting(true);
+    const ordNum = generateOrderNumber();
+    const payload = buildOrderPayload(ordNum);
+
+    // Save to localStorage
+    const orders = JSON.parse(localStorage.getItem('setakdalin_orders') || '[]');
+    orders.push(payload);
+    localStorage.setItem('setakdalin_orders', JSON.stringify(orders));
+    saveCustomerInfo();
+
+    // Try API submission
+    try {
+      await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      console.log('API unavailable, order saved locally');
+    }
+
+    // Send Telegram notification
+    await sendTelegram(payload);
+
+    setOrderNumber(ordNum);
+    setIsSubmitting(false);
+    setStep(5);
+  };
+
+  const resetAll = () => {
+    setStep(0);
+    setCart({});
+    setPickup({ pickupMethod: '', pickupDate: null, pickupTime: '', deliveryMethod: '', memo: '' });
+    setOrderNumber('');
+    // Keep customer info
+    setCustomer(prev => ({ ...prev, agreePrivacy: false, agreeMarketing: false }));
+  };
+
+  return (
+    <div className="max-w-md mx-auto min-h-screen relative">
+      {step === 0 && <WelcomeStep onNext={() => setStep(1)} />}
+      {step === 1 && <CustomerInfoStep data={customer} onChange={updateCustomer} onNext={() => { saveCustomerInfo(); setStep(2); }} onBack={() => setStep(0)} />}
+      {step === 2 && <ItemSelectionStep cart={cart} setCart={setCart} onNext={() => setStep(3)} onBack={() => setStep(1)} />}
+      {step === 3 && <PickupDeliveryStep data={pickup} onChange={updatePickup} onNext={() => setStep(4)} onBack={() => setStep(2)} />}
+      {step === 4 && <OrderSummaryStep customer={customer} cart={cart} pickup={pickup} days={days} onConfirm={submitOrder} onBack={() => setStep(3)} isSubmitting={isSubmitting} />}
+      {step === 5 && <CompleteStep orderNumber={orderNumber} pickup={pickup} days={days} onHome={resetAll} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
